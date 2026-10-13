@@ -1,0 +1,27 @@
+From: matanco64 <38103422+matanco64@users.noreply.github.com>
+Subject: [PATCH] winemac.drv: Don't call OnMainThread() from the main thread in macdrv_update_opengl_context().
+
+macdrv_update_opengl_context() is reached from -[WineContentView viewWillDraw] on the
+main thread when a context was still pending at the time the view became visible. The
+"update" branch then calls OnMainThread(), which queues the block for the main run loop
+and waits on a semaphore forever -- behind its own wait, since the main thread is the one
+waiting. The window stops being serviced (spinning cursor) and every Wine thread that
+needs the main thread hangs with it.
+
+Observed with an application that attaches an OpenGL context to a window already hosting
+a Metal-backed (D3DMetal) swap chain. The two other OnMainThread() call sites in this
+file already guard with -[NSThread isMainThread]; do the same here.
+---
+diff --git a/dlls/winemac.drv/cocoa_opengl.m b/dlls/winemac.drv/cocoa_opengl.m
+index 2801834..b6ee50c 100644
+--- a/dlls/winemac.drv/cocoa_opengl.m
++++ b/dlls/winemac.drv/cocoa_opengl.m
+@@ -319,6 +319,8 @@ void macdrv_update_opengl_context(macdrv_opengl_context c)
+                 [context clearDrawableLeavingSurfaceOnScreen];
+                 context.view = view;
+             }
++            else if ([NSThread isMainThread])
++                [context update];
+             else OnMainThread(^{
+                 [context update];
+             });
