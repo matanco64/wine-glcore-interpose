@@ -1,0 +1,7 @@
+#!/bin/zsh
+# Run any Wine command with the interposer loaded.
+#   wine-glcore /path/to/wine 'C:\app\app.exe' [args]
+# Env: GLCORE_INTERPOSE_PROFILE=32|41 (default 41), GLCORE_INTERPOSE_LOG=1, GLCORE_INTERPOSE_PUMP=0 to disable the deadlock fix.
+HERE="${0:A:h}"
+export DYLD_INSERT_LIBRARIES="$HERE/libglcore_interpose.dylib" GLCORE_INTERPOSE=1
+exec "$@"
