@@ -14,12 +14,14 @@ export WINEDEBUG="${WINEDEBUG_OVERRIDE:-err+all}"
 cd "$W/Contents/SharedSupport/prefix/drive_c/ProjectReclaimer"
 echo "launch $(date)" > "$LOG"
 # Own session so a terminal/tool timeout cannot kill the game. macOS strips DYLD_* from the
-# system python's environment, so the interposer path is passed as an argument and re-added here.
-/usr/bin/python3 - "$W/Contents/SharedSupport/wine/bin/wine" "$LOG" "$HERE/libglcore_interpose.dylib" <<'PY' &
+# system python's environment, so the interposer path and the bottle's library path are passed
+# as arguments and re-added here. Without the library path, a cold start (Steam not running)
+# fails to launch wineserver: "Library not loaded: @rpath/libinotify.0.dylib".
+/usr/bin/python3 - "$W/Contents/SharedSupport/wine/bin/wine" "$LOG" "$HERE/libglcore_interpose.dylib" "$DYLD_FALLBACK_LIBRARY_PATH" <<'PY' &
 import os, sys, subprocess
-wine, log, dylib = sys.argv[1:4]
+wine, log, dylib, fallback = sys.argv[1:5]
 os.setsid()
-env = dict(os.environ); env["DYLD_INSERT_LIBRARIES"] = dylib
+env = dict(os.environ); env["DYLD_INSERT_LIBRARIES"] = dylib; env["DYLD_FALLBACK_LIBRARY_PATH"] = fallback
 with open(log, "ab") as f:
     p = subprocess.Popen([wine, r"C:\ProjectReclaimer\project-reclaimer.exe", "game-client"], stdout=f, stderr=subprocess.STDOUT, env=env)
     sys.exit(p.wait())
